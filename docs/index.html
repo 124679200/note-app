@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="可编辑单页笔记应用：支持富文本格式、图片上传、背景配色与 HTML 导出，数据保存在浏览器本地。">
+<meta name="author" content="三大爷">
+<meta name="theme-color" content="#667eea">
+<meta property="og:type" content="website">
+<meta property="og:title" content="我的编辑笔记">
+<meta property="og:description" content="可编辑单页笔记应用，支持富文本格式与图片上传。">
+<title>我的编辑笔记</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-color: #f5f7fa;
+    --card-bg: #ffffff;
+    --primary: #667eea;
+    --accent: #764ba2;
+    --text: #2d3748;
+    --text-light: #718096;
+    --border: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 25px -5px rgba(0,0,0,0.08);
+    --shadow-hover: 0 10px 30px -5px rgba(102,126,234,0.25);
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg-color);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.4s ease, color 0.3s ease;
+  }
+
+  /* ===== 顶部 ===== */
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: white;
+    padding: 32px 24px 90px;
+  }
+  .header-inner { max-width: 1200px; margin: 0 auto; }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    outline: none;
+    border-radius: 6px;
+    padding: 2px 4px;
+    transition: background 0.2s;
+  }
+  h1:focus { background: rgba(255,255,255,0.15); }
+  .subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+    outline: none;
+    border-radius: 6px;
+    padding: 2px 4px;
+    display: inline-block;
+    transition: background 0.2s;
+  }
+  .subtitle:focus { background: rgba(255,255,255,0.15); }
+
+  /* ===== 工具栏 ===== */
+  .toolbar {
+    background: white;
+    border-radius: 16px;
+    padding: 10px 14px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 24px;
+  }
+  .tool-group {
+    display: flex;
+    gap: 4px;
+    padding: 0 6px;
+    border-right: 1px solid var(--border);
+    align-items: center;
+  }
+  .tool-group:last-child { border-right: none; }
+  .tool-label {
+    font-size: 12px;
+    color: var(--text-light);
+    padding: 0 4px;
+  }
+  .storage-info {
+    font-size: 12px;
+    color: var(--text-light);
+    padding: 0 4px;
+    white-space: nowrap;
+    cursor: default;
+  }
+  .storage-info.warn { color: #e53e3e; font-weight: 600; }
+  .btn.on { background: rgba(49,130,206,0.16); color: #3182ce; font-weight: 600; }
+  /* 下拉选择框 */
+  .btn.select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    padding: 7px 26px 7px 12px;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    max-width: 150px;
+    text-overflow: ellipsis;
+  }
+  .btn.select:hover { background-color: rgba(0,0,0,0.05); }
+  .btn.select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+  body.dark .btn.select { color: #e2e8f0; }
+  body.dark .btn.select:hover { background-color: rgba(255,255,255,0.08); }
+  /* 文字颜色选择器 */
+  .color-picker.text .color-dot { position: relative; }
+  .color-picker.text .color-dot .bar {
+    position: absolute;
+    left: 3px; right: 3px; bottom: 4px;
+    height: 3px;
+    border-radius: 2px;
+  }
+  .btn {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--bg-color); }
+  .btn:active { transform: scale(0.96); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    color: white;
+  }
+  .btn.primary:hover { opacity: 0.9; background: linear-gradient(135deg, var(--primary), var(--accent)); }
+  .btn.danger:hover { background: #fee; color: #e53e3e; }
+  .btn.icon {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  /* ===== 主容器 ===== */
+  main {
+    max-width: 1200px;
+    margin: -56px auto 80px;
+    padding: 0 24px;
+    position: relative;
+    z-index: 2;
+  }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s;
+    position: relative;
+    overflow: hidden;
+    word-wrap: break-word;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+  }
+  .card.editing {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  .card-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text);
+    outline: none;
+    border-bottom: 2px solid transparent;
+    padding-bottom: 4px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+  .card-title:focus { border-bottom-color: var(--primary); }
+  .card-content {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-light);
+    outline: none;
+    min-height: 50px;
+    white-space: pre-wrap;
+  }
+  .card-content:focus { color: var(--text); }
+  .card-image {
+    width: 100%;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    display: block;
+    max-height: 220px;
+    object-fit: cover;
+  }
+  .image-wrap { position: relative; }
+  .image-remove {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .card:hover .image-remove { display: flex; }
+  .card-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .card.has-image .card-actions { right: 12px; top: 12px; }
+  .card:hover .card-actions { opacity: 1; }
+  .card-action-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(255,255,255,0.95);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .card-action-btn:hover { transform: scale(1.1); }
+  .card-action-btn.danger:hover { background: #e53e3e; color: white; }
+
+  /* ===== 添加卡片占位 ===== */
+  .add-card {
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    color: var(--text-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+  }
+  .add-card:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-3px);
+    background: rgba(255,255,255,0.5);
+  }
+  .add-card-icon { font-size: 36px; margin-bottom: 6px; line-height: 1; }
+
+  /* ===== 颜色选择 ===== */
+  .color-picker { display: flex; gap: 6px; align-items: center; padding: 0 4px; }
+  .color-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px var(--border);
+    transition: all 0.2s;
+  }
+  .color-dot:hover { transform: scale(1.15); }
+  .color-dot.active {
+    box-shadow: 0 0 0 2px var(--primary);
+    transform: scale(1.1);
+  }
+
+  /* ===== 弹窗 ===== */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal.show { display: flex; animation: fadeIn 0.2s; }
+  .modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: slideUp 0.25s;
+  }
+  .modal-content h3 { margin-bottom: 10px; font-size: 18px; }
+  .modal-content p { color: var(--text-light); font-size: 14px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--text);
+    color: white;
+    padding: 10px 22px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    transition: transform 0.3s;
+    z-index: 1000;
+    font-size: 14px;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ===== 帮助提示 ===== */
+  .help-tip {
+    background: rgba(102,126,234,0.08);
+    border-left: 3px solid var(--primary);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 768px) {
+    h1 { font-size: 26px; }
+    header { padding: 24px 16px 100px; }
+    main { padding: 0 16px; margin-top: -66px; }
+    .toolbar { padding: 8px 10px; gap: 4px; }
+    .tool-group { padding: 0 4px; }
+    .btn { padding: 6px 10px; font-size: 12px; }
+    .btn.icon { width: 30px; height: 30px; }
+    .tool-label { display: none; }
+    .cards-grid { grid-template-columns: 1fr; gap: 14px; }
+    .card { padding: 18px; }
+  }
+
+  /* 暗色模式文字适配 */
+  body.dark { --text: #e2e8f0; --text-light: #a0aec0; --border: #2d3748; --card-bg: #2d3748; }
+  body.dark .toolbar { background: #2d3748; }
+  body.dark .btn:hover { background: #1a202c; }
+  body.dark .tool-group { border-color: #4a5568; }
+  body.dark .storage-info.warn { color: #fc8181; }
+  body.dark .btn.on { background: rgba(99,179,237,0.22); color: #90cdf4; }
+  body.dark .add-card { background: rgba(45,55,72,0.4); }
+  body.dark .add-card:hover { background: rgba(45,55,72,0.7); }
+  body.dark .modal-content { background: #2d3748; color: #e2e8f0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1 id="pageTitle" contenteditable="true" spellcheck="false">我的编辑笔记</h1>
+    <span class="subtitle" id="pageSubtitle" contenteditable="true" spellcheck="false">点击任意文本即可编辑 · 自动保存到本地浏览器</span>
+    <div class="toolbar">
+      <div class="tool-group">
+        <select class="btn select" id="fontFamilySelect" title="字体" onchange="applyFontFamily(this.value)">
+          <option value="">字体</option>
+        </select>
+        <select class="btn select" id="fontSizeSelect" title="字号" onchange="applyFontSize(this.value)">
+          <option value="">字号</option>
+        </select>
+        <button class="btn icon" onclick="changeFontSize(-2)" title="减小字号">A-</button>
+        <button class="btn icon" onclick="changeFontSize(2)" title="增大字号">A+</button>
+      </div>
+      <div class="tool-group">
+        <button class="btn" id="boldBtn" onclick="toggleBold()" title="加粗 (Ctrl+B)"><b>B</b></button>
+        <button class="btn" id="italicBtn" onclick="toggleItalic()" title="斜体 (Ctrl+I)"><i>I</i></button>
+        <button class="btn" id="underlineBtn" onclick="toggleUnderline()" title="下划线 (Ctrl+U)"><u>U</u></button>
+        <button class="btn" id="strikeBtn" onclick="toggleStrike()" title="删除线"><s>S</s></button>
+      </div>
+      <div class="tool-group">
+        <span class="tool-label">字色</span>
+        <div class="color-picker" id="textColorPicker"></div>
+        <button class="btn icon" onclick="pickCustomTextColor()" title="自定义文字颜色">🎨</button>
+      </div>
+      <div class="tool-group">
+        <button class="btn primary" onclick="addCard()">＋ 新卡片</button>
+      </div>
+      <div class="tool-group">
+        <span class="tool-label">背景</span>
+        <div class="color-picker" id="bgColorPicker"></div>
+        <button class="btn icon" onclick="pickCustomColor()" title="自定义颜色">🎨</button>
+      </div>
+      <div class="tool-group">
+        <button class="btn" onclick="document.getElementById('imageInput').click()">🖼 插入图片</button>
+        <button class="btn on" id="compressToggle" onclick="toggleCompress()" title="开启后图片会自动压缩再保存，可容纳更大的原图">🗜 自动压缩</button>
+        <input type="file" id="imageInput" accept="image/*" style="display:none">
+      </div>
+      <div class="tool-group">
+        <span class="storage-info" id="storageInfo" title="浏览器本地存储用量">存储 0 KB</span>
+      </div>
+      <div class="tool-group">
+        <button class="btn" onclick="exportHTML()">💾 导出</button>
+      </div>
+      <div class="tool-group">
+        <button class="btn danger" onclick="resetAll()">↺ 重置</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="help-tip">💡 鼠标点击任意文字直接编辑；工具栏在标题下方；改动自动写入浏览器 localStorage，刷新不丢失。</div>
+  <div class="cards-grid" id="cardsGrid"></div>
+</main>
+
+<!-- 重置确认弹窗 -->
+<div class="modal" id="resetModal">
+  <div class="modal-content">
+    <h3>确认重置？</h3>
+    <p>所有编辑内容将被清除，恢复到初始模板。此操作不可撤销。</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('resetModal')">取消</button>
+      <button class="btn primary" onclick="confirmReset()">确认重置</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ========== 默认模板 ========== */
+const DEFAULT_TEMPLATE = {
+  bgColor: '#f5f7fa',
+  title: '我的编辑笔记',
+  subtitle: '点击任意文本即可编辑 · 自动保存到本地浏览器',
+  cards: [
+    { id: 1, title: '📌 欢迎使用', content: '这是一个完全可编辑的单页应用。点击任何文字就可以修改，所有改动自动保存。', image: '' },
+    { id: 2, title: '💡 核心功能', content: '• 点击任意文字直接编辑\n• 改动自动保存到 localStorage\n• 支持添加 / 删除卡片\n• 字号、粗体、斜体一键切换\n• 6 种背景色 + 自定义颜色\n• 图片上传、整页 HTML 导出', image: '' },
+    { id: 3, title: '🎯 使用技巧', content: '工具栏位于标题下方。删除按钮在卡片右上角悬停可见。所有改动会立即保存，关闭浏览器也不会丢失。', image: '' }
+  ]
+};
+
+const BG_COLORS = [
+  { name: '淡蓝', value: '#f5f7fa' },
+  { name: '米白', value: '#faf8f5' },
+  { name: '薄荷', value: '#f0f7f4' },
+  { name: '樱粉', value: '#fdf2f8' },
+  { name: '暖黄', value: '#fefce8' },
+  { name: '深色', value: '#1a202c' }
+];
+
+const STORAGE_KEY = 'editable-page-state-v1';
+let nextId = 100;
+let state = null;
+let toastTimer = null;
+
+/* ========== 数据持久化 ========== */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { console.warn('load failed', e); }
+  return JSON.parse(JSON.stringify(DEFAULT_TEMPLATE));
+}
+
+function saveState() {
+  const out = {
+    bgColor: document.body.style.backgroundColor || DEFAULT_TEMPLATE.bgColor,
+    title: document.getElementById('pageTitle').innerText.trim(),
+    subtitle: document.getElementById('pageSubtitle').innerText.trim(),
+    cards: []
+  };
+  document.querySelectorAll('.card:not(.add-card)').forEach(el => {
+    const img = el.querySelector('.card-image');
+    const titleEl = el.querySelector('.card-title');
+    const contentEl = el.querySelector('.card-content');
+    out.cards.push({
+      id: parseInt(el.dataset.id) || Date.now(),
+      title: titleEl ? titleEl.innerText : '',
+      content: contentEl ? contentEl.innerText : '',
+      // 保存 HTML 以保留加粗/斜体/字号/字体/颜色等格式
+      titleHtml: titleEl ? titleEl.innerHTML : '',
+      contentHtml: contentEl ? contentEl.innerHTML : '',
+      // 图片本体存于 IndexedDB，这里只保留引用，避免撑爆 localStorage
+      image: '',
+      mediaId: (img && img.dataset.mediaId) || el.dataset.mediaId || ''
+    });
+  });
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
+  } catch (e) {
+    showToast('存储空间不足，请清理浏览器');
+  }
+  updateStorageInfo();
+}
+
+let saveTimer;
+function debouncedSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 350);
+}
+
+/* ========== 渲染卡片 ========== */
+function renderCards(cards) {
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+  cards.forEach(card => grid.appendChild(createCard(card)));
+  const add = document.createElement('div');
+  add.className = 'add-card';
+  add.onclick = addCard;
+  add.innerHTML = '<div class="add-card-icon">＋</div><div>添加新卡片</div>';
+  grid.appendChild(add);
+}
+
+function createCard(data) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.id = data.id;
+  const hasImage = !!(data.image || data.mediaId);
+  if (hasImage) card.classList.add('has-image');
+  let imageHtml = '';
+  if (hasImage) {
+    imageHtml = `<div class="image-wrap"><img class="card-image" alt=""><button class="image-remove" onclick="removeImage(${data.id})" title="删除图片">✕</button></div>`;
+  }
+  card.innerHTML = `
+    ${imageHtml}
+    <div class="card-title" contenteditable="true" spellcheck="false"></div>
+    <div class="card-content" contenteditable="true" spellcheck="false"></div>
+    <div class="card-actions">
+      <button class="card-action-btn" onclick="uploadImageForCard(${data.id})" title="上传/更换图片">🖼</button>
+      <button class="card-action-btn danger" onclick="deleteCard(${data.id})" title="删除卡片">✕</button>
+    </div>
+  `;
+  const titleEl = card.querySelector('.card-title');
+  const contentEl = card.querySelector('.card-content');
+  // 优先用 HTML 恢复（保留格式），旧数据只有纯文本时回退到 textContent
+  if (data.titleHtml) titleEl.innerHTML = data.titleHtml;
+  else titleEl.textContent = data.title || '';
+  if (data.contentHtml) contentEl.innerHTML = data.contentHtml;
+  else contentEl.textContent = data.content || '';
+  card.querySelectorAll('[contenteditable]').forEach(el => {
+    el.addEventListener('input', debouncedSave);
+    el.addEventListener('focus', () => card.classList.add('editing'));
+    el.addEventListener('blur', () => card.classList.remove('editing'));
+    el.addEventListener('paste', handlePaste);
+  });
+
+  // 恢复图片：优先按 mediaId 从 IndexedDB 取；兼容旧版直接存 base64 的数据
+  const imgEl = card.querySelector('.card-image');
+  if (imgEl) {
+    if (data.mediaId) {
+      card.dataset.mediaId = data.mediaId;
+      imgEl.dataset.mediaId = data.mediaId;
+      idbGet(data.mediaId)
+        .then(url => {
+          if (url) imgEl.src = url;
+          else { card.classList.remove('has-image'); }
+        })
+        .catch(() => {});
+    } else if (data.image) {
+      imgEl.src = data.image;
+      // 迁移旧数据到 IndexedDB，释放 localStorage 空间
+      idbPut('legacy-' + data.id, data.image)
+        .then(() => {
+          imgEl.dataset.mediaId = 'legacy-' + data.id;
+          card.dataset.mediaId = 'legacy-' + data.id;
+          debouncedSave();
+        })
+        .catch(() => {});
+    }
+  }
+  return card;
+}
+
+function handlePaste(e) {
+  // 允许粘贴带格式的富文本（保留来源的加粗/颜色等），纯文本也正常
+  if (!e.clipboardData) return;
+  const html = e.clipboardData.getData('text/html');
+  const text = e.clipboardData.getData('text/plain');
+  e.preventDefault();
+  if (html) {
+    document.execCommand('insertHTML', false, html);
+  } else if (text) {
+    document.execCommand('insertText', false, text);
+  }
+  debouncedSave();
+}
+
+/* ========== 文字格式编辑 ========== */
+/*
+ * 设计要点：
+ * 1. 用 document.execCommand 对「当前选区」生效，这样才是真正的所见即所得。
+ *    旧实现只改元素 style（font-size/font-weight），只能整体生效，
+ *    而且存进存档时只剩纯文本，刷新后格式全丢。
+ * 2. 工具栏按钮 mousedown 会让浏览器收起选区 → 用 preventDefault 保住选区。
+ * 3. 存档改为保存 innerHTML，才能留住富文本结构。
+ */
+
+const FONTS = [
+  { label: '默认', value: '' },
+  { label: '微软雅黑', value: '"Microsoft YaHei", "PingFang SC", sans-serif' },
+  { label: '宋体', value: '"SimSun", "Songti SC", serif' },
+  { label: '黑体', value: '"SimHei", "Heiti SC", sans-serif' },
+  { label: '楷体', value: '"KaiTi", "Kaiti SC", serif' },
+  { label: '仿宋', value: '"FangSong", serif' },
+  { label: '等线', value: '"DengXian", sans-serif' },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace' },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' }
+];
+
+const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48, 56, 64, 72];
+
+const TEXT_COLORS = [
+  { name: '默认', value: '' },
+  { name: '黑', value: '#000000' },
+  { name: '深灰', value: '#4a5568' },
+  { name: '红', value: '#e53e3e' },
+  { name: '橙', value: '#dd6b20' },
+  { name: '黄', value: '#d69e2e' },
+  { name: '绿', value: '#38a169' },
+  { name: '青', value: '#319795' },
+  { name: '蓝', value: '#3182ce' },
+  { name: '紫', value: '#805ad5' },
+  { name: '粉', value: '#d53f8c' },
+  { name: '白', value: '#ffffff' }
+];
+
+/* 最近一次操作的编辑目标（下拉框夺走焦点后仍能找回正确的元素） */
+let lastEditTarget = null;
+
+/* 找到当前正在编辑的可编辑元素（选区优先，其次焦点，最后最近目标） */
+function getActiveEditable() {
+  // 1. 当前选区所在的可编辑元素
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const node = sel.getRangeAt(0).commonAncestorContainer;
+    const el = node.nodeType === 3 ? node.parentElement : node;
+    const ed = el && el.closest ? el.closest('[contenteditable="true"]') : null;
+    if (ed) return ed;
+  }
+  // 2. 焦点所在的可编辑元素
+  const act = document.activeElement;
+  if (act && act.matches && act.matches('[contenteditable="true"]')) return act;
+  // 3. 最近一次操作的编辑目标
+  if (lastEditTarget && lastEditTarget.isConnected) return lastEditTarget;
+  // 4. 快照里的可编辑元素
+  if (savedSnapshot && savedSnapshot.root && savedSnapshot.root.isConnected) return savedSnapshot.root;
+  return null;
+}
+
+/* 恢复选区：工具栏按钮按下时浏览器会清掉选区，这里提前存一份 */
+let savedRange = null;
+
+/* 选区快照：下拉框打开时 Range 可能已失效，用文本定位做兜底 */
+let savedSnapshot = null;
+
+function captureRange() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+    const r = sel.getRangeAt(0);
+    const node = r.commonAncestorContainer;
+    const el = node.nodeType === 3 ? node.parentElement : node;
+    if (el && el.closest && el.closest('[contenteditable="true"]')) {
+      savedRange = r.cloneRange();
+      // 记录选区起止在元素内的字符偏移，便于 Range 失效后重建
+      const root = el.closest('[contenteditable="true"]');
+      lastEditTarget = root;
+      savedSnapshot = {
+        root,
+        start: offsetInRoot(root, r.startContainer, r.startOffset),
+        end: offsetInRoot(root, r.endContainer, r.endOffset)
+      };
+    }
+  }
+}
+
+/* 选区变化时刷新快照（下拉框打开后 Range 可能已失效，快照是兜底） */
+function refreshSnapshot() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const r = sel.getRangeAt(0);
+  if (r.collapsed) return; // 光标态不更新快照，保留上一次的有效选区
+  const node = r.commonAncestorContainer;
+  const el = node.nodeType === 3 ? node.parentElement : node;
+  if (el && el.closest && el.closest('[contenteditable="true"]')) {
+    const root = el.closest('[contenteditable="true"]');
+    lastEditTarget = root;
+    savedSnapshot = {
+      root,
+      start: offsetInRoot(root, r.startContainer, r.startOffset),
+      end: offsetInRoot(root, r.endContainer, r.endOffset)
+    };
+  }
+}
+/* 计算某节点+偏移在 root 内的纯文本字符偏移 */
+function offsetInRoot(root, container, offset) {
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  try {
+    range.setEnd(container, offset);
+    return range.toString().length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/* 依据字符偏移在 root 内重建选区 */
+function rebuildRange(root, start, end) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  let pos = 0;
+  let startNode = null, startOff = 0, endNode = null, endOff = 0;
+  let foundStart = false;
+  while (node) {
+    const len = node.textContent.length;
+    if (!foundStart && start <= pos + len) {
+      startNode = node; startOff = start - pos; foundStart = true;
+    }
+    if (foundStart && end <= pos + len) {
+      endNode = node; endOff = end - pos; break;
+    }
+    pos += len;
+    node = walker.nextNode();
+  }
+  if (!startNode || !endNode) return false;
+  const r = document.createRange();
+  try {
+    r.setStart(startNode, Math.max(0, startOff));
+    r.setEnd(endNode, Math.max(0, endOff));
+  } catch (e) { return false; }
+  return r;
+}
+
+function restoreRange() {
+  // 优先用活的 Range —— 但必须确认它属于当前目标元素，否则会恢复到别处
+  const target = getActiveEditable();
+  if (savedRange && target) {
+    const node = savedRange.startContainer;
+    const el = node.nodeType === 3 ? node.parentElement : node;
+    const owner = el && el.closest ? el.closest('[contenteditable="true"]') : null;
+    if (owner && owner === target) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+      return true;
+    }
+  }
+  // 兜底：用字符偏移重建（快照也属于目标元素时才用）
+  if (savedSnapshot && target && savedSnapshot.root === target) {
+    const r = rebuildRange(savedSnapshot.root, savedSnapshot.start, savedSnapshot.end);
+    if (r) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      savedRange = r.cloneRange();
+      return true;
+    }
+  }
+  return false;
+}
+
+/* 核心：执行一个格式命令 */
+function execFormat(command, value, btnId) {
+  const target = getActiveEditable();
+  if (!target) { showToast('请先选中要修改的文字'); return false; }
+  // 没有存活的选区时，把光标所在整个元素作为作用范围
+  if (!restoreRange()) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0);
+      if (r.collapsed) r.selectNodeContents(target);
+      savedRange = r.cloneRange();
+      restoreRange();
+    }
+  }
+  target.focus();
+  restoreRange();
+  document.execCommand(command, false, (value === undefined || value === null) ? null : value);
+  captureRange();
+  syncFormatButtons();
+  debouncedSave();
+  return true;
+}
+
+/* ========== 各格式命令 ========== */
+function toggleBold() {
+  execFormat('bold', null, 'boldBtn');
+}
+function toggleItalic() {
+  execFormat('italic', null, 'italicBtn');
+}
+function toggleUnderline() {
+  execFormat('underline', null, 'underlineBtn');
+}
+function toggleStrike() {
+  execFormat('strikeThrough', null, 'strikeBtn');
+}
+
+/* 统一的"给选区套样式"实现 */
+function applyStyleToSelection(prop, value) {
+  const target = getActiveEditable();
+  if (!target) { showToast('请先选中要修改的文字'); return false; }
+  // 恢复选区（可能是快照重建的）
+  if (!restoreRange()) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0);
+      if (r.collapsed) r.selectNodeContents(target);
+      savedRange = r.cloneRange();
+      if (!restoreRange()) return false;
+    } else {
+      return false;
+    }
+  }
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return false; // 折叠选区不处理，避免清空文字
+  const span = document.createElement('span');
+  span.style[prop] = value;
+  try {
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+  } catch (e) { return false; }
+  // 选中刚插入的内容，方便连续调整
+  const newRange = document.createRange();
+  newRange.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  savedRange = newRange.cloneRange();
+  refreshSnapshot();
+  syncFormatButtons();
+  debouncedSave();
+  return true;
+}
+
+/* 字号：直接用 Range 包 span，一步到位（不要先调 fontSize 命令，会清空选区） */
+function applyFontSize(px) {
+  if (!px) return;
+  applyStyleToSelection('fontSize', px + 'px');
+}
+
+/* A- / A+：在当前字号基础上增减 */
+function changeFontSize(delta) {
+  const target = getActiveEditable();
+  if (!target) { showToast('请先选中要修改的文字'); return; }
+  restoreRange();
+  let cur = parseInt(window.getComputedStyle(target).fontSize) || 14;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0) {
+    const r = sel.getRangeAt(0);
+    const node = r.startContainer.nodeType === 3 ? r.startContainer.parentElement : r.startContainer;
+    if (node) {
+      const fs = parseInt(window.getComputedStyle(node).fontSize);
+      if (fs) cur = fs;
+    }
+  }
+  const next = Math.max(10, Math.min(96, cur + delta));
+  applyFontSize(String(next));
+  const sel2 = document.getElementById('fontSizeSelect');
+  if (sel2) sel2.value = '';
+}
+
+/* 字体 */
+function applyFontFamily(family) {
+  if (!family) return;
+  applyStyleToSelection('fontFamily', family);
+}
+
+/* 文字颜色 */
+function applyTextColor(color) {
+  if (!color) {
+    execFormat('removeFormat', null, null);
+    return;
+  }
+  applyStyleToSelection('color', color);
+}
+
+function pickCustomTextColor() {
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = '#3182ce';
+  input.onchange = e => {
+    applyTextColor(e.target.value);
+    renderTextColorPicker();
+  };
+  input.click();
+}
+
+/* 同步按钮激活状态 */
+function syncFormatButtons() {
+  const state = (cmd) => {
+    try { return document.queryCommandState(cmd); } catch (e) { return false; }
+  };
+  const set = (id, on) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', !!on);
+  };
+  set('boldBtn', state('bold'));
+  set('italicBtn', state('italic'));
+  set('underlineBtn', state('underline'));
+  set('strikeBtn', state('strikeThrough'));
+
+  // 同步字号/字体下拉框显示当前选区状态
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+    const node = sel.getRangeAt(0).startContainer;
+    const el = node.nodeType === 3 ? node.parentElement : node;
+    if (el) {
+      const cs = window.getComputedStyle(el);
+      const sizeSel = document.getElementById('fontSizeSelect');
+      if (sizeSel) {
+        const px = Math.round(parseFloat(cs.fontSize));
+        const match = FONT_SIZES.find(s => Math.abs(s - px) <= 1);
+        sizeSel.value = match ? String(match) : '';
+        sizeSel.title = match ? '字号 ' + px + 'px' : '字号 ' + px + 'px（自定义）';
+      }
+      const fontSel = document.getElementById('fontFamilySelect');
+      if (fontSel) {
+        const cur = cs.fontFamily;
+        const f = FONTS.find(x => x.value && cur.indexOf(x.value.split(',')[0].replace(/["']/g, '')) > -1);
+        fontSel.value = f ? f.value : '';
+      }
+    }
+  }
+}
+
+/* 渲染字体下拉选项 */
+function renderFontPicker() {
+  const sel = document.getElementById('fontFamilySelect');
+  if (!sel) return;
+  sel.innerHTML = '';
+  FONTS.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f.value;
+    o.textContent = f.label;
+    if (f.value) o.style.fontFamily = f.value;
+    sel.appendChild(o);
+  });
+}
+
+/* 渲染字号下拉选项 */
+function renderFontSizePicker() {
+  const sel = document.getElementById('fontSizeSelect');
+  if (!sel) return;
+  sel.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = '字号';
+  sel.appendChild(ph);
+  FONT_SIZES.forEach(s => {
+    const o = document.createElement('option');
+    o.value = String(s);
+    o.textContent = s + 'px';
+    sel.appendChild(o);
+  });
+}
+
+/* 渲染文字颜色选择器 */
+function renderTextColorPicker() {
+  const wrap = document.getElementById('textColorPicker');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  TEXT_COLORS.forEach(c => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.title = c.name;
+    dot.dataset.color = c.value;
+    dot.style.background = c.value || 'transparent';
+    dot.style.borderColor = c.value ? '#fff' : 'var(--border)';
+    const bar = document.createElement('span');
+    bar.className = 'bar';
+    bar.style.background = c.value || 'var(--text)';
+    dot.appendChild(bar);
+    dot.onclick = () => { applyTextColor(c.value); };
+    wrap.appendChild(dot);
+  });
+}
+
+function addCard() {
+  const id = nextId++;
+  const card = createCard({ id, title: '新卡片', content: '点击编辑…', image: '' });
+  const grid = document.getElementById('cardsGrid');
+  const addBtn = grid.querySelector('.add-card');
+  grid.insertBefore(card, addBtn);
+  debouncedSave();
+  showToast('已添加新卡片');
+  setTimeout(() => {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const titleEl = card.querySelector('.card-title');
+    titleEl.focus();
+    const range = document.createRange();
+    range.selectNodeContents(titleEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }, 80);
+}
+
+function deleteCard(id) {
+  const card = document.querySelector(`.card[data-id="${id}"]`);
+  if (!card) return;
+  if (!confirm('确定删除这张卡片吗？')) return;
+  const mediaId = card.dataset.mediaId;
+  card.style.transform = 'scale(0.85)';
+  card.style.opacity = '0';
+  setTimeout(() => {
+    card.remove();
+    if (mediaId) idbDelete(mediaId).catch(() => {});
+    debouncedSave();
+    showToast('卡片已删除');
+  }, 200);
+}
+
+function removeImage(id) {
+  const card = document.querySelector(`.card[data-id="${id}"]`);
+  if (!card) return;
+  const wrap = card.querySelector('.image-wrap');
+  const mediaId = card.dataset.mediaId;
+  if (wrap) wrap.remove();
+  card.classList.remove('has-image');
+  delete card.dataset.mediaId;
+  if (mediaId) idbDelete(mediaId).catch(() => {});
+  debouncedSave();
+  updateStorageInfo();
+  showToast('图片已移除');
+}
+
+/* ========== 图片存储：IndexedDB（容量远大于 localStorage） ========== */
+const DB_NAME = 'editable-page-media';
+const DB_STORE = 'images';
+let dbPromise = null;
+
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error('当前浏览器不支持 IndexedDB'));
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) {
+        db.createObjectStore(DB_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+  return dbPromise;
+}
+
+function idbPut(id, dataUrl) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put({ id: String(id), dataUrl });
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function idbGet(id) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(String(id));
+    req.onsuccess = () => resolve(req.result ? req.result.dataUrl : '');
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function idbDelete(id) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).delete(String(id));
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function idbClear() {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).clear();
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+/* ========== 图片上传 ========== */
+const MAX_ORIGINAL_SIZE = 100 * 1024 * 1024; // 原图入口上限 100MB，超过则提示先自行压缩
+let compressEnabled = true;
+
+function toggleCompress() {
+  compressEnabled = !compressEnabled;
+  const btn = document.getElementById('compressToggle');
+  if (btn) btn.classList.toggle('on', compressEnabled);
+  showToast(compressEnabled ? '已开启自动压缩：可上传更大原图' : '已关闭自动压缩：按原图保存');
+}
+
+function formatBytes(n) {
+  if (!n) return '0 KB';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function uploadImageForCard(id) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => handleImage(e.target.files[0], id);
+  input.click();
+}
+
+/* 用 canvas 等比缩放并压缩图片，返回 {dataUrl, outSize} */
+function compressImage(file, maxEdge, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('图片格式无法解析'));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxEdge / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({ dataUrl, outSize: Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4) });
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* 逐步降质重试，目标是压到 targetSize 以内 */
+async function compressToFit(file, maxEdge, quality, targetSize) {
+  let q = quality;
+  let result = await compressImage(file, maxEdge, q);
+  while (result.outSize > targetSize && q > 0.35) {
+    q -= 0.12;
+    result = await compressImage(file, maxEdge, q);
+  }
+  if (result.outSize > targetSize) {
+    // 还超限就继续缩小边长
+    let edge = maxEdge;
+    while (result.outSize > targetSize && edge > 480) {
+      edge = Math.round(edge * 0.75);
+      result = await compressImage(file, edge, q);
+    }
+  }
+  return result;
+}
+
+function handleImage(file, targetCardId) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('请选择图片文件'); return; }
+  if (file.size > MAX_ORIGINAL_SIZE) {
+    showToast('图片超过 100MB，请先自行压缩后再上传');
+    return;
+  }
+  handleImageAsync(file, targetCardId);
+}
+
+async function handleImageAsync(file, targetCardId) {
+  let dataUrl = '';
+  let note = '';
+  try {
+    if (compressEnabled) {
+      showToast('正在压缩图片…');
+      const res = await compressToFit(file, 1920, 0.85, 900 * 1024);
+      dataUrl = res.dataUrl;
+      if (file.size > res.outSize * 1.5) {
+        note = `（已从 ${formatBytes(file.size)} 压缩到 ${formatBytes(res.outSize)}）`;
+      }
+    } else {
+      const reader = new FileReader();
+      dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = ev => resolve(ev.target.result);
+        reader.onerror = () => reject(new Error('读取文件失败'));
+        reader.readAsDataURL(file);
+      });
+    }
+  } catch (err) {
+    showToast('图片处理失败：' + (err && err.message ? err.message : '未知错误'));
+    return;
+  }
+
+  // 存入 IndexedDB
+  const mediaId = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  try {
+    await idbPut(mediaId, dataUrl);
+  } catch (err) {
+    showToast('图片保存失败：' + (err && err.message ? err.message : '存储不可用'));
+    return;
+  }
+
+  if (targetCardId) {
+    const card = document.querySelector(`.card[data-id="${targetCardId}"]`);
+    if (!card) { idbDelete(mediaId); return; }
+    card.classList.add('has-image');
+    let wrap = card.querySelector('.image-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'image-wrap';
+      wrap.innerHTML = `<img class="card-image" alt=""><button class="image-remove" onclick="removeImage(${targetCardId})" title="删除图片">✕</button>`;
+      card.insertBefore(wrap, card.firstChild);
+    }
+    const imgEl = wrap.querySelector('img');
+    imgEl.src = dataUrl;
+    imgEl.dataset.mediaId = mediaId;
+    card.dataset.mediaId = mediaId;
+  } else {
+    // 顶部工具栏上传：插入到第一张卡片
+    const firstCard = document.querySelector('.card:not(.add-card)');
+    if (firstCard) {
+      firstCard.classList.add('has-image');
+      let wrap = firstCard.querySelector('.image-wrap');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'image-wrap';
+        wrap.innerHTML = `<img class="card-image" alt=""><button class="image-remove" onclick="removeImage(${firstCard.dataset.id})" title="删除图片">✕</button>`;
+        firstCard.insertBefore(wrap, firstCard.firstChild);
+      }
+      const imgEl = wrap.querySelector('img');
+      imgEl.src = dataUrl;
+      imgEl.dataset.mediaId = mediaId;
+      firstCard.dataset.mediaId = mediaId;
+    } else {
+      addCard();
+      await new Promise(r => setTimeout(r, 100));
+      await handleImageAsync(file, null);
+      return;
+    }
+  }
+  debouncedSave();
+  updateStorageInfo();
+  showToast('图片已上传' + note);
+}
+
+function bindImageInput() {
+  const input = document.getElementById('imageInput');
+  if (input) input.addEventListener('change', e => handleImage(e.target.files[0], null));
+}
+
+/* 工具栏交互：按下时先存住选区，避免格式丢失 */
+function bindToolbar() {
+  const toolbar = document.querySelector('.toolbar');
+  if (!toolbar) return;
+  toolbar.addEventListener('mousedown', e => {
+    // 只对按钮/下拉框生效，输入框类控件不拦截
+    const t = e.target;
+    if (t.closest('button, select')) {
+      // 先刷新选区快照（此刻选区还在），再阻止默认行为
+      refreshSnapshot();
+      captureRange();
+      e.preventDefault();
+    }
+  });
+  toolbar.addEventListener('click', e => {
+    if (e.target.closest('button, select')) {
+      restoreRange();
+      syncFormatButtons();
+    }
+  });
+  // 键盘快捷键
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === 'b') { e.preventDefault(); toggleBold(); }
+    else if (key === 'i') { e.preventDefault(); toggleItalic(); }
+    else if (key === 'u') { e.preventDefault(); toggleUnderline(); }
+  });
+  // 选区变化时同步按钮状态 + 刷新快照
+  document.addEventListener('selectionchange', () => {
+    refreshSnapshot();
+    if (document.activeElement && document.activeElement.matches('[contenteditable="true"]')) {
+      syncFormatButtons();
+    }
+  });
+}
+
+/* ========== 背景颜色 ========== */
+function renderBgPicker() {
+  const wrap = document.getElementById('bgColorPicker');
+  wrap.innerHTML = '';
+  BG_COLORS.forEach(c => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.style.background = c.value;
+    dot.title = c.name;
+    dot.dataset.color = c.value;
+    dot.onclick = () => setBgColor(c.value);
+    if (normalizeColor(c.value) === normalizeColor(state.bgColor || DEFAULT_TEMPLATE.bgColor)) {
+      dot.classList.add('active');
+    }
+    wrap.appendChild(dot);
+  });
+}
+
+function setBgColor(color) {
+  document.body.style.backgroundColor = color;
+  if (isDark(color)) {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+  // 只更新背景色选择器，不影响文字颜色选择器
+  document.querySelectorAll('#bgColorPicker .color-dot').forEach(d => {
+    d.classList.toggle('active', normalizeColor(d.dataset.color) === normalizeColor(color));
+  });
+  debouncedSave();
+}
+
+function pickCustomColor() {
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = '#f5f7fa';
+  input.onchange = e => setBgColor(e.target.value);
+  input.click();
+}
+
+function isDark(hex) {
+  const c = hex.replace('#', '');
+  if (c.length !== 6) return false;
+  const r = parseInt(c.substr(0, 2), 16);
+  const g = parseInt(c.substr(2, 2), 16);
+  const b = parseInt(c.substr(4, 2), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
+function normalizeColor(c) {
+  return String(c).toLowerCase().trim();
+}
+
+/* ========== 重置 ========== */
+function resetAll() {
+  const m = document.getElementById('resetModal');
+  if (m) m.classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function confirmReset() {
+  localStorage.removeItem(STORAGE_KEY);
+  idbClear().catch(() => {});
+  init(true);
+  closeModal('resetModal');
+  showToast('已恢复初始模板');
+}
+
+/* ========== 导出 ========== */
+async function exportHTML() {
+  showToast('正在打包导出…');
+  const data = await collectCurrentStateAsync();
+  const clone = document.documentElement.cloneNode(true);
+  // 保留隐藏的 file input（图片上传要用），移除弹窗/提示等运行时元素
+  clone.querySelectorAll('.modal, .toast, .help-tip').forEach(el => el.remove());
+  // 在导出文件中内嵌当前数据（含图片本体），打开即可完整显示
+  // 注意：脚本内不能出现字面量闭合标签，否则会提前结束 script 块导致 JS 被截断
+  const CLOSE = '<' + '/script>';
+  const payload = JSON.stringify(data).split(CLOSE).join('<\\/script>');
+  // 必须插到主脚本之前，保证主脚本里的 init() 能读到 __INITIAL_DATA__
+  const dataScript = '<scr' + 'ipt>window.__INITIAL_DATA__ = ' + payload + ';</scr' + 'ipt>\n';
+  let html = clone.outerHTML;
+  const firstScript = html.indexOf('<script');
+  if (firstScript >= 0) {
+    html = html.slice(0, firstScript) + dataScript + html.slice(firstScript);
+  } else {
+    html = html.replace('</body>', dataScript + '</body>');
+  }
+  html = '<!DOCTYPE html>\n' + html;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  a.href = url;
+  a.download = `my-page-${ts}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('已导出 HTML 文件');
+}
+
+function collectCurrentState() {
+  return {
+    bgColor: document.body.style.backgroundColor || DEFAULT_TEMPLATE.bgColor,
+    title: document.getElementById('pageTitle').innerText.trim(),
+    subtitle: document.getElementById('pageSubtitle').innerText.trim(),
+    cards: Array.from(document.querySelectorAll('.card:not(.add-card)')).map(el => ({
+      id: parseInt(el.dataset.id) || Date.now(),
+      title: el.querySelector('.card-title').innerText,
+      content: el.querySelector('.card-content').innerText,
+      image: el.querySelector('.card-image') ? el.querySelector('.card-image').src : ''
+    }))
+  };
+}
+
+/* 导出用：把 IndexedDB 里的图片还原成内嵌 base64 */
+async function collectCurrentStateAsync() {
+  const cardEls = Array.from(document.querySelectorAll('.card:not(.add-card)'));
+  const cards = cardEls.map(el => {
+    const t = el.querySelector('.card-title');
+    const c = el.querySelector('.card-content');
+    return {
+      id: parseInt(el.dataset.id) || Date.now(),
+      title: t ? t.innerText : '',
+      content: c ? c.innerText : '',
+      titleHtml: t ? t.innerHTML : '',
+      contentHtml: c ? c.innerHTML : '',
+      image: ''
+    };
+  });
+  for (let i = 0; i < cards.length; i++) {
+    const el = cardEls[i];
+    const img = el.querySelector('.card-image');
+    if (!img) continue;
+    if (img.src && img.src.startsWith('data:')) {
+      cards[i].image = img.src;
+    } else if (el.dataset.mediaId) {
+      try { cards[i].image = await idbGet(el.dataset.mediaId) || ''; } catch (e) {}
+    }
+  }
+  return {
+    bgColor: document.body.style.backgroundColor || DEFAULT_TEMPLATE.bgColor,
+    title: document.getElementById('pageTitle').innerText.trim(),
+    subtitle: document.getElementById('pageSubtitle').innerText.trim(),
+    cards
+  };
+}
+
+/* ========== 存储用量显示 ========== */
+function updateStorageInfo() {
+  const el = document.getElementById('storageInfo');
+  if (!el) return;
+  let bytes = 0;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || '';
+    bytes = new Blob([raw]).size;
+  } catch (e) {}
+  const text = '存储 ' + formatBytes(bytes);
+  el.textContent = text;
+  // localStorage 通常 5MB 左右，超过 80% 提醒
+  el.classList.toggle('warn', bytes > 4 * 1024 * 1024);
+  el.title = 'localStorage 用量 ' + formatBytes(bytes) + '（上限约 5MB）；图片本体存在 IndexedDB，不占这里';
+}
+
+/* ========== Toast ========== */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ========== 初始化 ========== */
+function init(forceReset) {
+  state = forceReset ? JSON.parse(JSON.stringify(DEFAULT_TEMPLATE)) : loadState();
+  document.body.style.backgroundColor = state.bgColor || DEFAULT_TEMPLATE.bgColor;
+  if (state.bgColor && isDark(state.bgColor)) document.body.classList.add('dark');
+
+  document.getElementById('pageTitle').innerText = state.title || DEFAULT_TEMPLATE.title;
+  document.getElementById('pageSubtitle').innerText = state.subtitle || DEFAULT_TEMPLATE.subtitle;
+
+  const maxId = state.cards.reduce((m, c) => Math.max(m, c.id || 0), 0);
+  nextId = maxId + 1;
+
+  renderCards(state.cards);
+  renderBgPicker();
+  renderFontPicker();
+  renderFontSizePicker();
+  renderTextColorPicker();
+  updateStorageInfo();
+
+  ['pageTitle', 'pageSubtitle'].forEach(id => {
+    document.getElementById(id).addEventListener('input', debouncedSave);
+  });
+}
+
+// 关闭弹窗（点击遮罩）
+function bindModalClose() {
+  const modal = document.getElementById('resetModal');
+  if (modal) modal.addEventListener('click', e => {
+    if (e.target.id === 'resetModal') closeModal('resetModal');
+  });
+}
+
+// 启动：等 DOM 就绪后再执行，保证脚本放在任何位置都安全
+function boot() {
+  bindModalClose();
+  bindImageInput();
+  bindToolbar();
+  init();
+
+  // 导出文件支持：如果 HTML 中内嵌了 __INITIAL_DATA__，使用它渲染
+  if (window.__INITIAL_DATA__) {
+    try {
+      const incoming = window.__INITIAL_DATA__;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(incoming));
+      init();
+      delete window.__INITIAL_DATA__;
+      // 导出的文件里图片是内嵌 base64，重新写回 IndexedDB 以便后续正常保存
+      (incoming.cards || []).forEach(c => {
+        if (c.image && c.image.startsWith('data:')) {
+          const mid = 'legacy-' + c.id;
+          idbPut(mid, c.image).then(() => {
+            const card = document.querySelector(`.card[data-id="${c.id}"]`);
+            if (card) { card.dataset.mediaId = mid; const img = card.querySelector('.card-image'); if (img) img.dataset.mediaId = mid; }
+          }).catch(() => {});
+        }
+      });
+    } catch (e) {}
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+</body>
+</html>
